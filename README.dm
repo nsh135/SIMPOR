@@ -1,4 +1,4 @@
-This is code for reproducing experiments in manuscript SIMPOR. 
+This is the code for reproducing experiments in paper SIMPOR. 
 
 1. Set up the environment using conda following requirments.txt
 
