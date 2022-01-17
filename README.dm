@@ -1,3 +1,5 @@
+This is code for reproducing experiments in manuscript SIMPOR. 
+
 1. Set up the environment using conda following requirments.txt
 
 2. Run main E.g., 
