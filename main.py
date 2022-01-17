@@ -4,7 +4,7 @@
 import builtins as __builtin__
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.datasets.samples_generator import make_blobs
+from sklearn.datasets import make_blobs
 from sklearn.datasets import make_gaussian_quantiles,make_classification
 from sklearn.utils.multiclass import unique_labels
 import sklearn
@@ -33,7 +33,7 @@ from tensorflow.keras.layers import Dense  , Dropout
 from simpor import max_FracPosterior_balancing
 
 from sklearn.model_selection import train_test_split
-from keras.datasets import mnist
+from tensorflow.keras.datasets import mnist
 import datetime
 
 from DATA.diabetes.loaddata import load_diabetes
@@ -407,7 +407,7 @@ if __name__== "__main__":
     
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", help="DataSets: moon, breast_cancer, creditcard",
-                        choices={'moon', 'breast_cancer' ,'creditcard', 'mnist'},
+                        choices={'moon', 'breast_cancer' ,'creditcard'},
                         type=str, default="moon")
     parser.add_argument("--n_threads", help="number of threads, default 34, If using CUDA -> n_threads is set to 1",
                         type=int, default=10)
