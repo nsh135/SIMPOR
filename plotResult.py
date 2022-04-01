@@ -7,8 +7,6 @@ and generate ROC curve plot for each exp
 from sklearn.metrics import roc_curve, roc_auc_score, f1_score, precision_recall_fscore_support
 import pickle as csv
 import os
-import re
-from sklearn.preprocessing import label
 import pandas as pd
 import numpy as np
 from matplotlib import  pyplot as plt
@@ -142,12 +140,12 @@ for exp in expData.keys():
             
             ##plot Histogram
             bins = np.linspace(0,1,20)
-            
-            fig = ff.create_distplot([x1D[y==0], x1D[y==1] ], [ 'Normal', 'Fraudulent'],colors=['rgb(0, 0, 100)', 'rgb(0, 200, 200)'], bin_size=bins, show_rug=False)
-            fig.update_layout(showlegend=True, legend= {'x':0.7,'y':0.9, 'itemsizing': 'constant', 'font':{'size':24}, })
-            fig.update_yaxes(visible=False, showticklabels=False,)
-            fig.update_xaxes(visible=False, showticklabels=False, )
-            fig.write_image(csvfile.replace('.csv', "_DIST.jpg").replace('Results','Figures/PCA'), width=1200, height=800)
+            if len(data.columns)>3:
+                fig = ff.create_distplot([x1D[y==0], x1D[y==1] ], [ 'Normal', 'Fraudulent'],colors=['rgb(0, 0, 100)', 'rgb(0, 200, 200)'], bin_size=bins, show_rug=False)
+                fig.update_layout(showlegend=True, legend= {'x':0.7,'y':0.9, 'itemsizing': 'constant', 'font':{'size':24}, })
+                fig.update_yaxes(visible=False, showticklabels=False,)
+                fig.update_xaxes(visible=False, showticklabels=False, )
+                fig.write_image(csvfile.replace('.csv', "_DIST.jpg").replace('Results','Figures/PCA'), width=1200, height=800)
 
             #histogram overlap 
             if False:

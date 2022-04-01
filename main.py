@@ -39,6 +39,8 @@ import datetime
 from DATA.diabetes.loaddata import load_diabetes
 from DATA.creditcardfraud.load_data import load_creditcard
 
+from collections import Counter
+
 gpus = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpus:
   tf.config.experimental.set_memory_growth(gpu, True)
@@ -76,14 +78,17 @@ def data_gen(dataset_name, IR):
     Return 
     X_train, X_test, y_train, y_test
     """
-    global k, k_neighbors, n_neuron,epoch , n_layers
+    global k, k_neighbors, n_neuron,epoch , n_layers, lr
     global X, labels
 
+    #default 
+    lr =0.01
     if dataset_name == 'breast_cancer':
         dataset = sklearn.datasets.load_breast_cancer()  ##{1: 357, 0: 212}
-        n_neuron = 10; 
+        n_neuron = 20; 
         n_layers = 3
-        epoch = 150
+        lr = 0.1
+        epoch = 200
         X = dataset['data']
         labels = dataset['target']
         cls_need_removal = [0]
@@ -92,26 +97,26 @@ def data_gen(dataset_name, IR):
         k_neighbors = 10  #for SMOTE
     elif dataset_name == 'moon':
         n_samples = 3000 # for moon dataset
-        X,labels  = sklearn.datasets.make_moons(n_samples=n_samples, noise=.2, random_state =RandomSeed)
-        n_neuron = 200; 
+        X,labels  = sklearn.datasets.make_moons(n_samples=n_samples, noise=.5, random_state =RandomSeed)
+        n_neuron = 20; 
         n_layers = 3
-        epoch = 200
+        epoch = 500
+        lr = 0.1
         cls_need_removal = [0]
         rm_ratio = [1-(1/IR)]## removal percentage
         k =  1  # for maxFracPosterior, generate k neighbors for each found minima in informative set 
         k_neighbors = 5 #for SMOTE
-
     elif dataset_name == 'creditcard':  #{0: 284314, 1: 492}
         ## this will take long
         X,labels  = load_creditcard()
-        n_neuron = 300;
+        n_neuron = 50
         n_layers = 5 
-        epoch =400
+        lr = 70
+        epoch =100
         cls_need_removal = [0, 1]  # majority
         rm_ratio = [ 1-(IR*492/284314) ] #removal percentage 
         k =  1  # for maxFracPosterior, generate k neighbors for each found minima in informative set 
-        k_neighbors = 20 #for SMOTE
-
+        k_neighbors = 10 #for SMOTE
     elif dataset_name == 'mnist':
         (X_train, y_train),(X_test,y_test) = mnist.load_data()
         ## take only 2 classes: 4 and 7 {0:5,000, 1: 5,000}
@@ -150,7 +155,7 @@ def data_gen(dataset_name, IR):
     plt.savefig(figure_path + "/org_{}.jpg".format(dataset_name))
 
 
-    from collections import Counter
+    
     c=Counter(labels)
     print("Total original data {}".format(c))
 
@@ -205,10 +210,8 @@ def plotboundary(clf, X,y, model_name="DNN", title='',save=''):
     x1 = X[:, 1]
     x_min, x_max =  x0.min() - 0.2, x0.max() + 0.2
     y_min, y_max =  x1.min() - 0.2, x1.max() + 0.2
-    
     if input_dim==2:
         h = .02  # step size in the mesh   
-        
         xx, yy = np.meshgrid(np.arange(x_min, x_max, h),
                              np.arange(y_min, y_max, h))
         # Plot the decision boundary. For that, we will assign a color to each
@@ -218,7 +221,7 @@ def plotboundary(clf, X,y, model_name="DNN", title='',save=''):
         
     # Put the result into a color plot  
     fig = plt.figure()
-    plt.scatter(x0, x1, s=2, c = y)
+    plt.scatter(x0, x1, s=7, c = y)
     if input_dim==2: 
         plt.xlim(x_min,x_max)
         plt.ylim(y_min,y_max)
@@ -262,7 +265,7 @@ class My_classifier():
                 self.model.add(Dense(n_neuron, activation='relu'))
             self.model.add(Dense(2, activation='softmax'))
             # compile the keras model
-            opt = tf.keras.optimizers.SGD(learning_rate=0.01)
+            opt = tf.keras.optimizers.SGD(learning_rate=lr)
             self.model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
             
     def fit(self,X,y, X_val, y_val, sample_weight = None):     
@@ -393,6 +396,7 @@ def SIMPOR_n_runs(**kwargs):
             max_FracPosterior_balancing(X_train, y_train,k=k, h=h, AL_classifier = AL_classifier, \
                                             informative_threshold=p, n_threads= n_threads, CUDA=CUDA)
         print("-Balancing data time: {:.2f} Minutes".format( (time.time() - t)/60 ) )
+        c = Counter(y_full)
         #train on full SIMPOR global (including final step for balancing)
         #split to training and validation sets 
         F1_full, _ =  n_classification( X_full, y_full, X_test, y_test, X_test, y_test, 1, epoch, method=method, num_runs=i)
@@ -418,9 +422,9 @@ if __name__== "__main__":
     parser.add_argument("--IR", help="Imbalance Ratio, default =3",
                         type=int, default=3)
     parser.add_argument("--cuda", help="using cuda, boolean{True,False}, default True",
-                        type=bool, default=True)
+                        type=bool, default=False)
     parser.add_argument("--gridSearch", help="Find the best params for Simpor, boolean{True,False}, would take a while, default True",
-                        type=bool, default=True)
+                        type=bool, default=False)
     args = parser.parse_args()
     
     global dataset_name, input_dim, X_train, X_test, y_train, y_test, RandomSeed
@@ -429,7 +433,6 @@ if __name__== "__main__":
     num_runs = args.n_runs 
     RandomSeed = args.randseed
     IR = args.IR
-    gridSearch = args.gridSearch
     CUDA = args.cuda
     # if CUDA: n_threads=1 
 
@@ -454,7 +457,7 @@ if __name__== "__main__":
     plotboundary(org_classifier, X_train ,y_train , model_name="dnn", title='Imbalanced Data', save='ImbalancedData')
 
     ### if search for best paras
-    if gridSearch:
+    if args.gridSearch:
         Plot= True
         h_list = [  0.1] # bandwidth of Gaussian kernel
         entropy_threshold_list = [0.1, 0.2, 0.3]
@@ -505,11 +508,11 @@ if __name__== "__main__":
 
     #test Other methods
     t2 = time.time() 
-    BorderlineSMOTE_F1_scores =  OtherMethod_n_runs(method = 'BorderlineSMOTE', X_train= X_train, y_train=y_train, X_test=X_test, y_test=y_test, num_runs=num_runs, epoch=epoch)
+    # BorderlineSMOTE_F1_scores =  OtherMethod_n_runs(method = 'BorderlineSMOTE', X_train= X_train, y_train=y_train, X_test=X_test, y_test=y_test, num_runs=num_runs, epoch=epoch)
     
     
     t3 = time.time() 
-    ADASYN_F1_scores =  OtherMethod_n_runs(method = 'ADASYN', X_train= X_train, y_train=y_train, X_test=X_test, y_test=y_test, num_runs=num_runs, epoch=epoch)
+    # ADASYN_F1_scores =  OtherMethod_n_runs(method = 'ADASYN', X_train= X_train, y_train=y_train, X_test=X_test, y_test=y_test, num_runs=num_runs, epoch=epoch)
     
     
     t4 = time.time() 
@@ -517,14 +520,14 @@ if __name__== "__main__":
     
 
     t5 = time.time() 
-    Oversampling_F1_scores =  OtherMethod_n_runs(method = 'Oversampling', X_train= X_train, y_train=y_train, X_test=X_test, y_test=y_test, num_runs=num_runs, epoch=epoch)
+    # Oversampling_F1_scores =  OtherMethod_n_runs(method = 'Oversampling', X_train= X_train, y_train=y_train, X_test=X_test, y_test=y_test, num_runs=num_runs, epoch=epoch)
     
 
     t6 = time.time() 
     print("\n\n=====Summary after {} runs====".format(num_runs))
     print("SIMPOR_F1 mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format( SIMPOR_F1_full.mean(), SIMPOR_F1_full.std() ,(t1- t)/60 )  )
-    print("BorderlineSMOTE_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format( BorderlineSMOTE_F1_scores.mean(),BorderlineSMOTE_F1_scores.std(), (t3 - t2)/60  ))
-    print("ADASYN_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format(ADASYN_F1_scores.mean() ,ADASYN_F1_scores.std()  ,(t4 - t3)/60 ) )
+    # print("BorderlineSMOTE_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format( BorderlineSMOTE_F1_scores.mean(),BorderlineSMOTE_F1_scores.std(), (t3 - t2)/60  ))
+    # print("ADASYN_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format(ADASYN_F1_scores.mean() ,ADASYN_F1_scores.std()  ,(t4 - t3)/60 ) )
     print("SMOTE_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format( SMOTE_F1_scores.mean() , SMOTE_F1_scores.std()  ,(t5 - t4)/60 ) )
-    print("Oversampling_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format( Oversampling_F1_scores.mean() , Oversampling_F1_scores.std() ,(t6 - t5)/60 )  )
+    # print("Oversampling_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format( Oversampling_F1_scores.mean() , Oversampling_F1_scores.std() ,(t6 - t5)/60 )  )
     print("Original_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format(Original_F1_scores.mean() ,Original_F1_scores.std() ,(t2- t1)/60 ) )

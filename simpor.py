@@ -160,7 +160,7 @@ def gd( X, y, minor_cls, major_cls, h, radius, x,  max_iters=100, lr=0.01, toler
     minor_cls, major_cls: minority and majority classes 
     h: bandwidth of the Gaussian kernel 
     radius: radius of n-sphere
-    x: minority example x that synthetic data generated from
+    x: the selected minority example x that synthetic data generated from
     max_iters: maximum number of gradient iterations 
     lr: gradient learning rate
     radius: the raius of n-sphere surrounding example x (should be small )
@@ -194,6 +194,8 @@ def gd( X, y, minor_cls, major_cls, h, radius, x,  max_iters=100, lr=0.01, toler
         df = lambda at_x: derivative_f(at_x,Ratio_Kde, CUDA) #Gradient of our function at cur_x
         tolerance_cnt = 0
         
+
+        old = Ratio_Kde(cur_x)
         while  iters < max_iters and tolerance_cnt<5:
             if previous_step_size < tolerance:
                 tolerance_cnt += 1
@@ -213,12 +215,14 @@ def gd( X, y, minor_cls, major_cls, h, radius, x,  max_iters=100, lr=0.01, toler
             ###update x
             phi = lr*np.pi #generate phi
             cur_x = (prev_x_normalized * np.cos(phi) + tangent_vec*np.sin(phi))*radius  #Grad ascent on the origin coordinate
-            previous_step_size = Ratio_Kde(cur_x+new_origin)- Ratio_Kde(prev_x+new_origin)   #Change in target function  
-            assert abs(norm(cur_x)-radius)<0.00001, "cur_x {} is not equal to radius {}".format(norm(cur_x), radius)    
+            previous_step_size = abs(Ratio_Kde(cur_x+new_origin)- Ratio_Kde(prev_x+new_origin))   #Change in target function  
+            # assert abs(norm(cur_x)-radius)<0.00001, "cur_x {} is not equal to radius {}".format(norm(cur_x), radius)    
 
-            if verbose: print("\nIter: "+ str(iters) +"   Loss : ", Ratio_Kde(cur_x),  "cur_x: ",cur_x)
+            if verbose==1: print("\nIter: "+ str(iters) +"   Loss : ", Ratio_Kde(cur_x),  "cur_x: ",cur_x)
             iters = iters+1 #iteration count
+        new = Ratio_Kde(cur_x)
         if verbose: print("\nThe local minimum occurs at", cur_x + new_origin)
+        if verbose: print("Old RatioKDE:{}, new RatioKDE: {}  RatioKDE Difference(old-new):{}", old, new , old-new)
         return cur_x + new_origin ## return x on original origin coordinate
 
     else: #CUDA mode, process all points at once
@@ -248,7 +252,7 @@ def thread_generate_synthetic_each_example(args):
         Generate k synthetic data points from each sample
         return : k synthetic samples
     """
-    verbose = 0 # gradient ascent verbose
+    verbose = 2 # gradient ascent verbose
     debug  = 0 # printout x and maxima
     
     # extract arguments 
@@ -315,8 +319,8 @@ def balance_subset(big_X, big_y, sub_X, sub_y, major_cls, minor_cls_list,k , ban
     Return: Synthetic samples 
     """
     k_R_distance = 10 # number of neighbers to compute max radius R
-    iter_max = 800 #max iteration for Gradient Ascent to find optima
-    lr = 0.001 #lerning rate for gradient ascent method
+    iter_max = 1800 #max iteration for Gradient Ascent to find optima
+    lr = 0.0001 #lerning rate for gradient ascent method
     torelance = 0.000001 #consider as a increasement in step size 
     print("Sub set of data label count:",Counter(sub_y),"major cls:",major_cls )
     print("Finding optima for Simpor:Gradient ascent iter_max:",iter_max,", lr:",lr )
@@ -364,6 +368,7 @@ def balance_subset(big_X, big_y, sub_X, sub_y, major_cls, minor_cls_list,k , ban
                         for idx,R in zip(rand_example_indices,R_all_points)] 
                 
                 with Pool(n_threads) as p:
+                    print("------number of threads", n_threads)
                     r = p.map(thread_generate_synthetic_each_example, args)
                 r = list(filter(None,r)) ## remove None values
                 for r_x,r_y in r:
@@ -437,8 +442,9 @@ def max_FracPosterior_balancing(X, y, k=1 , h = 0.3, AL_classifier=None, informa
     X_prime = np.concatenate( (X,X_iftive_synthetic) ,axis=0) ; y_prime = np.concatenate( (y,y_iftive_synthetic),axis=0) 
     label_prime_cnt  = Counter(y_prime)
     print("Finish informative balancing, X_prime shape, y_prime shape, labelcount", X_prime.shape, y_prime.shape, label_prime_cnt) 
-                
-    # globally balancing the remainder of data
+
+    ###uncomment if want to balance the remaining data            
+    ## globally balancing the remainder of data
     print("Start balancing the remainder of data")
     X_remain_synthetic, y_remain_synthetic = balance_subset(X, y, X_remain, y_remain, M, V, k , h, True, n_threads, CUDA)
     # concatenate all data
@@ -446,6 +452,7 @@ def max_FracPosterior_balancing(X, y, k=1 , h = 0.3, AL_classifier=None, informa
     label_2prime_cnt  = Counter(y_2prime)
     print("Finish global balancing, X_2prime shape, y_2prime shape, labelcount", X_2prime.shape, y_2prime.shape, label_2prime_cnt)
     return X_2prime, y_2prime ,X_prime, y_prime
+    # return X_prime, y_prime ,X_prime, y_prime
    
 
 

@@ -1,0 +1,14 @@
+# .*
+__pycache__/
+*.pyc
+pwd/*
+*LOG*
+Figures/*
+.ipynb*
+stableCPU/*
+simpor_test*
+CUDA_test*
+DATA/creditcardfraud/creditcard.csv
+# *.txt
+# *creditcard.csv
+
