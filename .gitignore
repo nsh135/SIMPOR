@@ -9,6 +9,7 @@ stableCPU/*
 simpor_test*
 CUDA_test*
 DATA/creditcardfraud/creditcard.csv
+out
 # *.txt
 # *creditcard.csv
 

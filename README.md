@@ -14,3 +14,10 @@ Optimization gradient ascent parameters are in simpor.py line 317-320
 ** The last version was tested with cuda True. 
 Have not tested the multi-threads CPU option (though it worked a while before submited day). 
 If you find any trouble pls make a request. Due to the limit of hardware, it would run for a while. 
+
+
+### If using Slum on multiple datasets
+while read -r dataset;
+do
+   sbatch job.sh $dataset ;
+done < datasets.txt

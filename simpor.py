@@ -153,7 +153,7 @@ def derivative_f(x,fun, CUDA=False):
 
 
 
-def gd( X, y, minor_cls, major_cls, h, radius, x,  max_iters=100, lr=0.01, tolerance=0.0000001,kde_ratio=True, verbose=0, CUDA= False ):
+def gd( X, y, minor_cls, major_cls, h, radius, x,  max_iters=100, lr=0.01, tolerance=0.0000001,GD_patience=10, kde_ratio=True, verbose=0, CUDA= False ):
     """
     Implement Gradient Ascent on a funcion "fun(x)" at x
     X,y : considering Dataset 
@@ -192,13 +192,12 @@ def gd( X, y, minor_cls, major_cls, h, radius, x,  max_iters=100, lr=0.01, toler
         previous_step_size = 1 #
         iters = 0 #iteration counter
         df = lambda at_x: derivative_f(at_x,Ratio_Kde, CUDA) #Gradient of our function at cur_x
-        tolerance_cnt = 0
         
-
+        patience = 0
         old = Ratio_Kde(cur_x)
-        while  iters < max_iters and tolerance_cnt<5:
+        while  iters < max_iters and patience<GD_patience:
             if previous_step_size < tolerance:
-                tolerance_cnt += 1
+                patience += 1
             prev_x = cur_x #Store current x value in prev_x
             
             # compute gradient vector at prev_x
@@ -221,8 +220,8 @@ def gd( X, y, minor_cls, major_cls, h, radius, x,  max_iters=100, lr=0.01, toler
             if verbose==1: print("\nIter: "+ str(iters) +"   Loss : ", Ratio_Kde(cur_x),  "cur_x: ",cur_x)
             iters = iters+1 #iteration count
         new = Ratio_Kde(cur_x)
-        if verbose: print("\nThe local minimum occurs at", cur_x + new_origin)
-        if verbose: print("Old RatioKDE:{}, new RatioKDE: {}  RatioKDE Difference(old-new):{}", old, new , old-new)
+        if verbose: print("\nThe local minimum occurs at", cur_x + new_origin,  flush=true)
+        if verbose: print("Old RatioKDE:{}, new RatioKDE: {}  RatioKDE Difference(old-new):{}", old, new , old-new, flush=true)
         return cur_x + new_origin ## return x on original origin coordinate
 
     else: #CUDA mode, process all points at once
@@ -252,20 +251,24 @@ def thread_generate_synthetic_each_example(args):
         Generate k synthetic data points from each sample
         return : k synthetic samples
     """
-    verbose = 2 # gradient ascent verbose
+    verbose = 0 # gradient ascent verbose
     debug  = 0 # printout x and maxima
     
     # extract arguments 
-    X, y, x, label , minor_cls, major_cls, k, R, bandwidth, gd_max_iters,gd_lr, gd_tolerance,kde_ratio, CUDA = args
+    X, y, x, label , minor_cls, major_cls, k, R, bandwidth, gd_max_iters,gd_lr, gd_tolerance,GD_patience,r_dist, kde_ratio, CUDA = args
      
     if label == minor_cls:  
         random_radius = np.random.uniform(low=0, high=R, size=1) 
         optima = gd(X, y, minor_cls= minor_cls, major_cls= major_cls, h=bandwidth,radius=random_radius, x=x, \
-                            max_iters=gd_max_iters, lr=gd_lr, tolerance=gd_tolerance, kde_ratio=kde_ratio, verbose=verbose, CUDA=CUDA)
+                            max_iters=gd_max_iters, lr=gd_lr, tolerance=gd_tolerance,GD_patience=GD_patience, kde_ratio=kde_ratio, verbose=verbose, CUDA=CUDA)
         X_result=[] 
         y_result=[]        
         for j in range(k): #each maxima, generate k neighbors to speedup
-            x_eps = np.array( optima + np.random.uniform(low=0.0, high=R/10, size= optima.shape ) ) # add some small noise to enrich the data
+            if 'beta' in r_dist:
+                x_eps = np.array( optima + np.random.beta(a=r_dist.split('_')[-2], b= r_dist.split('_')[-1] , size= optima.shape )*R ) #BEta distribution for R
+            else:
+                x_eps = np.array( optima + np.random.uniform(low=0.0, high=R, size= optima.shape ) ) # add some small noise to enrich the data
+            
             if debug: print("optima,  x, x_eps",optima, x, x_eps  )
             X_result.append(np.array(x_eps) )  
             y_result.append(np.array(minor_cls) )
@@ -279,18 +282,18 @@ def generate_synthetic_samples_cuda(args):
     Compute synthetic samples for all minority samples at once (CUDA version)
     x is now a multidimentional array 
     """
-    verbose = 0 # gradient ascent verbose
+    verbose = 2 # gradient ascent verbose
     debug  = 0 # printout x and maxima
     
     # extract arguments 
-    X, y, x, label , minor_cls, major_cls, k, R, bandwidth, gd_max_iters,gd_lr, gd_tolerance,kde_ratio, CUDA = args
+    X, y, x, label , minor_cls, major_cls, k, R, bandwidth, gd_max_iters,gd_lr, gd_tolerance,GD_patience, kde_ratio, CUDA = args
 
     # prepare and get each synthetic sample for every samples 
     if (label == minor_cls).all():  
         random_radius = np.array([np.random.uniform(low=0, high=r, size=1) for r in R]) 
         #find a optima synthetic data for every minority samples
         optima_array = gd(X, y, minor_cls= minor_cls, major_cls= major_cls, h=bandwidth,radius=random_radius, x=x, \
-                            max_iters=gd_max_iters, lr=gd_lr, tolerance=gd_tolerance, kde_ratio=kde_ratio, verbose=verbose, CUDA=CUDA)
+                            max_iters=gd_max_iters, lr=gd_lr, tolerance=gd_tolerance,GD_patience=GD_patience, kde_ratio=kde_ratio, verbose=verbose, CUDA=CUDA)
         X_result=[] 
         y_result=[]        
         
@@ -306,7 +309,7 @@ def generate_synthetic_samples_cuda(args):
 
 
 
-def balance_subset(big_X, big_y, sub_X, sub_y, major_cls, minor_cls_list,k , bandwidth ,kde_ratio,  n_threads, CUDA):
+def balance_subset(big_X, big_y, sub_X, sub_y, major_cls, minor_cls_list,k , bandwidth ,kde_ratio,  n_threads, CUDA, gd_args):
     """
     Balancing a sub set of data sub_X, sub_y 
     big_X, big_y: entire dataset and labels X,y 
@@ -316,12 +319,15 @@ def balance_subset(big_X, big_y, sub_X, sub_y, major_cls, minor_cls_list,k , ban
     kde_ratio: boolean , whether to maximize ratio f0/f1 or only f0
     n_threads: number of CPU threads
     CUDA: it is not supported yet
+    gd_args: params for gradient asenct to find maximum posterior ratio
     Return: Synthetic samples 
     """
-    k_R_distance = 10 # number of neighbers to compute max radius R
-    iter_max = 1800 #max iteration for Gradient Ascent to find optima
-    lr = 0.0001 #lerning rate for gradient ascent method
-    torelance = 0.000001 #consider as a increasement in step size 
+    k_R_distance = gd_args[0] # number of neighbers to compute max radius R
+    iter_max = gd_args[1] #max iteration for Gradient Ascent to find optima
+    lr = gd_args[2] #lerning rate for gradient ascent method
+    tolerance = gd_args[3] #consider as a increasement in step size 
+    GD_patience  = gd_args[4]
+    r_dist = gd_args[5]
     print("Sub set of data label count:",Counter(sub_y),"major cls:",major_cls )
     print("Finding optima for Simpor:Gradient ascent iter_max:",iter_max,", lr:",lr )
     # Prepare the new balanced dataset D' 
@@ -353,7 +359,7 @@ def balance_subset(big_X, big_y, sub_X, sub_y, major_cls, minor_cls_list,k , ban
             
             #compute max radius R based on average of K-nearest neighbors distances
             R_all_points=[]
-            neighbor = NearestNeighbors(n_neighbors=k_R_distance, radius=0.3)
+            neighbor = NearestNeighbors(n_neighbors=k_R_distance, radius=3, n_jobs=n_threads)
             neighbor.fit(big_X[big_y==c])
             for idx in rand_example_indices:
                 nbrs = np.array(neighbor.kneighbors([sub_X_minor[idx]], min(k_R_distance,len(big_X[big_y==c]))\
@@ -364,7 +370,7 @@ def balance_subset(big_X, big_y, sub_X, sub_y, major_cls, minor_cls_list,k , ban
 
             if not CUDA: 
                 args = [(big_X, big_y, sub_X_minor[idx] , sub_y_minor[idx], c ,major_cls , k, R, \
-                            bandwidth, iter_max , lr, torelance,kde_ratio, CUDA) \
+                            bandwidth, iter_max , lr, tolerance,GD_patience,r_dist, kde_ratio, CUDA) \
                         for idx,R in zip(rand_example_indices,R_all_points)] 
                 
                 with Pool(n_threads) as p:
@@ -372,14 +378,15 @@ def balance_subset(big_X, big_y, sub_X, sub_y, major_cls, minor_cls_list,k , ban
                     r = p.map(thread_generate_synthetic_each_example, args)
                 r = list(filter(None,r)) ## remove None values
                 for r_x,r_y in r:
+                    if num_generated >= num_generate: break
                     X_temp = np.concatenate(  (X_temp,r_x), axis=0) 
                     y_temp = np.concatenate(  (y_temp,r_y), axis=0) 
                     num_generated += len(r_y) # count number of generated samples so far 
-                return X_temp[1:-1], y_temp[1:-1]
+                return X_temp[1:major_cls_count+1], y_temp[1:major_cls_count+1]
             else:
                 args = (big_X, big_y, sub_X_minor[rand_example_indices] , sub_y_minor[rand_example_indices],\
                         c ,major_cls , k, R_all_points, \
-                        bandwidth, iter_max , lr, torelance,kde_ratio, CUDA) 
+                        bandwidth, iter_max , lr, tolerance,GD_patience,r_dist, kde_ratio, CUDA) 
                 results = generate_synthetic_samples_cuda(args)
                 if results is not None:
                     return results[0], results[1] 
@@ -387,7 +394,7 @@ def balance_subset(big_X, big_y, sub_X, sub_y, major_cls, minor_cls_list,k , ban
         else:return X_temp[0:1], y_temp[0:1]
                     
         
-def max_FracPosterior_balancing(X, y, k=1 , h = 0.3, AL_classifier=None, informative_threshold = 0.4,  n_threads=1, CUDA= False):
+def max_FracPosterior_balancing(X, y, k=1 , h = 0.3, AL_classifier=None, informative_threshold = 0.4,  n_threads=1, CUDA= False, gd_args=None):
     """
     Balancing data based on maximizing Posterior ratio
     
@@ -437,7 +444,7 @@ def max_FracPosterior_balancing(X, y, k=1 , h = 0.3, AL_classifier=None, informa
         
 
     ##start balancing informative set
-    X_iftive_synthetic, y_iftive_synthetic = balance_subset(X, y, X_iftive, y_iftive, M, V, k , h, True, n_threads, CUDA)
+    X_iftive_synthetic, y_iftive_synthetic = balance_subset(X, y, X_iftive, y_iftive, M, V, k , h, True, n_threads, CUDA, gd_args)
     #concatenate original data with informative synthetic data
     X_prime = np.concatenate( (X,X_iftive_synthetic) ,axis=0) ; y_prime = np.concatenate( (y,y_iftive_synthetic),axis=0) 
     label_prime_cnt  = Counter(y_prime)
@@ -446,7 +453,7 @@ def max_FracPosterior_balancing(X, y, k=1 , h = 0.3, AL_classifier=None, informa
     ###uncomment if want to balance the remaining data            
     ## globally balancing the remainder of data
     print("Start balancing the remainder of data")
-    X_remain_synthetic, y_remain_synthetic = balance_subset(X, y, X_remain, y_remain, M, V, k , h, True, n_threads, CUDA)
+    X_remain_synthetic, y_remain_synthetic = balance_subset(X, y, X_remain, y_remain, M, V, k , h, True, n_threads, CUDA,gd_args)
     # concatenate all data
     X_2prime = np.concatenate( ( X_prime ,X_remain_synthetic) ,axis=0) ; y_2prime = np.concatenate( (y_prime,y_remain_synthetic),axis=0) 
     label_2prime_cnt  = Counter(y_2prime)
