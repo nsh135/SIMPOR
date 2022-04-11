@@ -1,0 +1,118 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[
+margin=0.2cm,
+]{geometry}
+\usepackage{layout}
+%\usepackage{fullpage}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{adjustbox}
+\pagenumbering{gobble} 
+
+
+
+%%place holders need to be replaced
+%% @xDataset: dataset name
+%% @xMinCount, @xMajCount, @xInterCount, @xHDR
+%% @1_2dPath, @1_histPath
+
+\newcommand{\image}[6]{%  
+  \begin{figure*}[h!]
+  	\centering
+  	%[trim=left bottom right top, clip]
+  	\begin{subfigure}[t]{0.32\linewidth}	
+  		\includegraphics[width=\linewidth,trim=40 40 40 40]{@1_2dPath}
+  		\includegraphics[width=\linewidth,trim=40 40 40 40]{@1_histPath}
+  		\begin{adjustbox}{width=\columnwidth,center}
+  		\begin{tabular}{c|c|c|c}
+  			Minority & Majority & Inter. & HDR  \\
+  			\hline
+  			@1MinCount  & @1MajCount  & @1InterCount & @1HDR\(\%\) \\
+  		\end{tabular}
+  		\end{adjustbox}
+  		\caption{#1. }
+  		\label{fig:RawData_hist}
+  	\end{subfigure}
+  	\hspace{0.1em}%
+  	\begin{subfigure}[t]{0.32\linewidth}	
+  		\includegraphics[width=\linewidth,trim=40 40 40 40,clip]{@2_2dPath}
+  		\includegraphics[width=\linewidth,trim=40 40 40 40,clip]{@2_histPath}
+  		\begin{adjustbox}{width=\columnwidth,center}
+  		\begin{tabular}{c|c|c|c}
+  			Minority & Majority & Inter. & HDR  \\
+  			\hline
+  			@2MinCount  & @2MajCount  & @2InterCount & @2HDR\(\%\) \\
+  		\end{tabular}
+  		\end{adjustbox}
+  		\caption{#2. }
+  		\label{fig:SIMPOR_hist}
+  	\end{subfigure}
+  	\hspace{0.1em}%
+  	\begin{subfigure}[t]{0.32\linewidth}	
+  		\includegraphics[width=\linewidth,trim=40 40 40 40,clip]{@3_2dPath}
+  		\includegraphics[width=\linewidth,trim=40 40 40 40,clip]{@3_histPath}
+  		\begin{adjustbox}{width=\columnwidth,center}
+  		\begin{tabular}{c|c|c|c}
+  			Minority & Majority & Inter. & HDR  \\
+  			\hline
+  			@3MinCount  & @3MajCount  & @3InterCount & @3HDR\(\%\) \\
+  		\end{tabular}
+  		\end{adjustbox}
+  		\caption{#3. }
+  		\label{fig:SMOTE_hist}
+  	\end{subfigure}
+  	\\ 
+  	\begin{subfigure}[t]{0.32\linewidth}	
+  		\includegraphics[width=\linewidth,trim=40 40 40 40,clip]{@4_2dPath}
+  		\includegraphics[width=\linewidth,trim=40 40 40 40,clip]{@4_histPath}
+		\begin{adjustbox}{width=\columnwidth,center}
+  		\begin{tabular}{c|c|c|c}
+  			Minority & Majority & Inter. & HDR  \\
+  			\hline
+  			@4MinCount  & @4MajCount  & @4InterCount & @4HDR\(\%\) \\
+  		\end{tabular}
+  	\end{adjustbox}
+  		\caption{#4. }
+  		\label{fig:#4}
+  	\end{subfigure}
+  	\hspace{0.1em}%
+  	\begin{subfigure}[t]{0.32\linewidth}	
+  		\includegraphics[width=\linewidth,trim=40 40 40 40,clip]{@5_2dPath}
+  		\includegraphics[width=\linewidth,trim=40 40 40 40,clip]{@5_histPath}
+		\begin{adjustbox}{width=\columnwidth,center}
+  		\begin{tabular}{c|c|c|c}
+  			Minority & Majority & Inter. & HDR  \\
+  			\hline
+  			@5MinCount  & @5MajCount  & @5InterCount & @5HDR\(\%\) \\
+  		\end{tabular}
+  	\end{adjustbox}
+  		\caption{#5. }
+  		\label{fig:#5}
+  	\end{subfigure}
+  	\hspace{0.1em}%
+  	\begin{subfigure}[t]{0.32\linewidth}	
+  		\includegraphics[width=\linewidth,trim=40 40 40 40,clip]{@6_2dPath}
+  		\includegraphics[width=\linewidth,trim=40 40 40 40,clip]{@6_histPath}
+		\begin{adjustbox}{width=\columnwidth,center}
+  		\begin{tabular}{c|c|c|c}
+  			Minority & Majority & Inter. & HDR  \\
+  			\hline
+  			@6MinCount  & @6MajCount  & @6InterCount & @6HDR\(\%\) \\
+  		\end{tabular}
+  	\end{adjustbox}
+  		\caption{#6. }
+  		\label{fig:#6}
+  	\end{subfigure}
+  	
+  %	\caption{Generated training data projected onto 2-dimension space and their histograms in 1-Dimension space using Principle Component Analysis dimension reduction technique. The explanation tables illustrate the number of samples in each class (Minority and Majority), 1-Dimension histogram intersection between 2 classes, and the hard-to-differentiate ratio ($HDR = \frac{Inter.}{Fraud}100\%$).}
+  	\label{fig:visualization}
+
+  	
+  \end{figure*}
+}
+
+\begin{document}
+
+\image{@1Dataset}{@2Dataset}{@3Dataset}{@4Dataset}{@5Dataset}{@6Dataset} 
+
+\end{document}
