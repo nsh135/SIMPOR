@@ -139,7 +139,7 @@ def plotResult(expdir=''):
         tsne_dir = log_dir +'/'+exp+ '/Figures' + '/TSNE'
         log_file = log_dir +'/'+exp+ '/log.txt'
         
-        reduceMethods = ['TSNE', 'PCA']
+        reduceMethods = ['PCA']  #['TSNE', 'PCA']
         templateDict = {}
         if False:  
             print("\n\n========================================")

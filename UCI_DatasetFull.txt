@@ -1,12 +1,6 @@
 spectrometer
-isolet
-us_crime
-scene
-libras_move
-arrhythmia   *high dimentional
 solar_flare_m0
 oil
 car_eval_4
 wine_quality
-ozone_level
 yeast_me2

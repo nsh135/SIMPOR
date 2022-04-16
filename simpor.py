@@ -220,8 +220,8 @@ def gd( X, y, minor_cls, major_cls, h, radius, x,  max_iters=100, lr=0.01, toler
             if verbose==1: print("\nIter: "+ str(iters) +"   Loss : ", Ratio_Kde(cur_x),  "cur_x: ",cur_x)
             iters = iters+1 #iteration count
         new = Ratio_Kde(cur_x)
-        if verbose: print("\nThe local minimum occurs at", cur_x + new_origin,  flush=true)
-        if verbose: print("Old RatioKDE:{}, new RatioKDE: {}  RatioKDE Difference(old-new):{}", old, new , old-new, flush=true)
+        if verbose: print("\nThe local minimum occurs at", cur_x + new_origin)
+        if verbose: print("Old RatioKDE:{}, new RatioKDE: {}  RatioKDE Difference(old-new):{}", old, new , old-new)
         return cur_x + new_origin ## return x on original origin coordinate
 
     else: #CUDA mode, process all points at once
@@ -265,7 +265,7 @@ def thread_generate_synthetic_each_example(args):
         y_result=[]        
         for j in range(k): #each maxima, generate k neighbors to speedup
             if 'beta' in r_dist:
-                x_eps = np.array( optima + np.random.beta(a=r_dist.split('_')[-2], b= r_dist.split('_')[-1] , size= optima.shape )*R ) #BEta distribution for R
+                x_eps = np.array( optima + np.random.beta(a= float(r_dist.split('_')[-2]), b= float(r_dist.split('_')[-1]) , size= optima.shape )*R ) #BEta distribution for R
             else:
                 x_eps = np.array( optima + np.random.uniform(low=0.0, high=R, size= optima.shape ) ) # add some small noise to enrich the data
             
@@ -282,7 +282,7 @@ def generate_synthetic_samples_cuda(args):
     Compute synthetic samples for all minority samples at once (CUDA version)
     x is now a multidimentional array 
     """
-    verbose = 2 # gradient ascent verbose
+    verbose = 0 # gradient ascent verbose
     debug  = 0 # printout x and maxima
     
     # extract arguments 
@@ -367,14 +367,13 @@ def balance_subset(big_X, big_y, sub_X, sub_y, major_cls, minor_cls_list,k , ban
                 nbrs_dist = np.array([d for d in nbrs[:,0][0,1:-1] ]) # exclude the x itself
                 R_all_points.append(nbrs_dist.mean() )
             R_all_points = np.array(R_all_points)
-
+            print("------number of threads: {}".format( n_threads))
             if not CUDA: 
                 args = [(big_X, big_y, sub_X_minor[idx] , sub_y_minor[idx], c ,major_cls , k, R, \
                             bandwidth, iter_max , lr, tolerance,GD_patience,r_dist, kde_ratio, CUDA) \
                         for idx,R in zip(rand_example_indices,R_all_points)] 
                 
                 with Pool(n_threads) as p:
-                    print("------number of threads", n_threads)
                     r = p.map(thread_generate_synthetic_each_example, args)
                 r = list(filter(None,r)) ## remove None values
                 for r_x,r_y in r:

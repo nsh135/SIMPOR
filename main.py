@@ -47,8 +47,6 @@ gpus = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpus:
   tf.config.experimental.set_memory_growth(gpu, True)
 
-
-
 def log_prepare(dataset_name):
     global log_dir, log_file, figure_path, result_dir, checkpoint, expdir
     expdir = dataset_name+str(datetime.datetime.now()).replace(":",'.').replace(" ","-")
@@ -93,9 +91,9 @@ def data_gen(dataset_name, IR):
     iter_max = 500 #max iteration for Gradient Ascent to find optima
     GD_lr = 0.00001 #lerning rate for gradient ascent method
     tolerance = 0.0001 #consider as a increasement in step size 
-    GD_patience = 30 # gradient ascent patience for stoping early
-    r_dist = 'uniform' # beta_alpha_beta
-    r_dist_list = ['uniform', 'beta_2_3', 'beta_3_2', 'beta_2_2']
+    GD_patience = 10 # gradient ascent patience for stoping early
+    r_dist = 'beta_3_2' # beta_alpha_beta
+    r_dist_list = ['uniform', 'beta_3_2', 'beta_2_3', 'beta_2_2']
     gd_args = [k_R_distance,iter_max,GD_lr,tolerance,GD_patience, r_dist   ]
 
     if dataset_name == 'breast_cancer':
@@ -131,7 +129,7 @@ def data_gen(dataset_name, IR):
         cls_need_removal = [0, 1]  # majority
         rm_ratio = [ 1-(IR*492/284314) ] #removal percentage 
         k =  1  # for maxFracPosterior, generate k neighbors for each found minima in informative set 
-        k_neighbors = 10 #for SMOTE
+        k_neighbors = 5 #for SMOTE
     else: 
         if dataset_name in UCI:
             X,labels =load_UCI(dataset_name)
@@ -140,15 +138,15 @@ def data_gen(dataset_name, IR):
         n_neuron = 100
         n_layers = 3
         lr = 0.1
-        epoch = 20
+        epoch = 200
         cls_need_removal = [0]  # majority
         rm_ratio = [ 0 ] #removal percentage 
         k =  1  # for maxFracPosterior, generate k neighbors for each found minima in informative set 
         k_neighbors = 5 #for SMOTE
 
-    if X.shape[1] >40: 
-        print("**************** high dimentional data, dim : {} ".format(X.shape[1]))
-        raise  Exception("**************** high dimentional data, dim : {} ".format(X.shape[1])) 
+    # if X.shape[1] >50: 
+    #     print("**************** high dimentional data, dim : {} ".format(X.shape[1]))
+    #     raise  Exception("**************** high dimentional data, dim : {} ".format(X.shape[1])) 
 
     print("\r==================={}===================\n\n".format(dataset_name))
     print("Params \nRandomSeed : {}\n n_neuron : {}\n n_Layers : {}\n epoch: {} \n k : {} \n cls_need_removal:{}"\
@@ -260,7 +258,7 @@ class My_classifier():
         # print("Number of devices: {}".format(strategy.num_replicas_in_sync))
         # Open a strategy scope.
         with strategy.scope():
-            reduce_lr_loss = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.9, patience=5, verbose=5, epsilon=1e-4,min_lr=0.001,  mode='auto')
+            reduce_lr_loss = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.9, patience=5, verbose=2, epsilon=1e-4,min_lr=0.001,  mode='auto')
             model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
             filepath=checkpoint,
             save_weights_only=False,
@@ -268,7 +266,7 @@ class My_classifier():
             mode='min',
             save_best_only=True)
             ##early stop callback
-            early_stop =  tf.keras.callbacks.EarlyStopping(monitor='loss', patience=epochs,restore_best_weights=True)
+            early_stop =  tf.keras.callbacks.EarlyStopping(monitor='loss', patience=7,restore_best_weights=True)
             Callbacks = [ reduce_lr_loss, model_checkpoint_callback, early_stop]
             # Everything that creates variables should be under the strategy scope.
             # In general this is only model construction & `compile()`.

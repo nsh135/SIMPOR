@@ -10,7 +10,7 @@ import numpy as np
       
 logDir = 'LOG/'
 metrics = ['MacroF1', 'MicroF1', 'AUC', 'Precision', 'Recall', 'MacroGmean', 'MicroGmean']
-methods = ['RawData', 'BorderlineSMOTE' ,'ADASYN','SMOTE',  'ROS','GDO', 'SIMPOR']
+methods = ['SIMPOR','GDO','SMOTE', 'BorderlineSMOTE' ,'ADASYN',  'ROS', ]
 datasets = []
 dfDict = {}
 exclude = ['RawData']
@@ -43,7 +43,7 @@ for metric in metrics:
 #dataset3    0.5     0.8    0.9
 
 
-writer = pd.ExcelWriter("CollectedResult.xlsx", engine='xlsxwriter')
+writer = pd.ExcelWriter("ResultCollecting.xlsx", engine='xlsxwriter')
 workbook  = writer.book
 bold_format = workbook.add_format({'bold': True})
 header_format  = header_format = workbook.add_format({
@@ -60,6 +60,7 @@ for metric in metrics:
     # Add a header format.
     
     # Write the column headers with the defined format.
+    dfTable = dfTable[methods] # change order of columns
     print(dfTable)
     #write header
     for col_num, value in enumerate(dfTable.columns.values):

@@ -43,4 +43,3 @@ yeast3
 yeast4
 yeast5
 yeast6
-
