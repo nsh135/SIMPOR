@@ -266,6 +266,8 @@ def thread_generate_synthetic_each_example(args):
         for j in range(k): #each maxima, generate k neighbors to speedup
             if 'beta' in r_dist:
                 x_eps = np.array( optima + np.random.beta(a= float(r_dist.split('_')[-2]), b= float(r_dist.split('_')[-1]) , size= optima.shape )*R ) #BEta distribution for R
+            elif 'gaussian' in r_dist:
+                x_eps = np.array( optima + np.random.normal(loc=0.0, scale= R*float(r_dist.split('_')[-1]), size= optima.shape  )  )              
             else:
                 x_eps = np.array( optima + np.random.uniform(low=0.0, high=R, size= optima.shape ) ) # add some small noise to enrich the data
             

@@ -80,17 +80,17 @@ def listdirs(rootdir,expdir ):
     for it in os.scandir(rootdir):
         if it.is_dir() and 'old' not in it.name:
             listdirs(it,expdir)
-        elif it.name.endswith('.csv') and 'label' in it.name and expdir in it.path: 
+        elif it.name.endswith('.csv') and 'label' in it.name and (expdir in it.path or not expdir): 
             exp_dir = it.path.split('/')[-3]
             expDict.setdefault(exp_dir,[]).append(it.path)
-        elif it.name.endswith('.csv') and 'loss' in it.name and expdir in it.path: 
+        elif it.name.endswith('.csv') and 'loss' in it.name and (expdir in it.path or not expdir): 
             exp_dir = it.path.split('/')[-3]
             expDictLoss.setdefault(exp_dir,[]).append(it.path)
-        elif it.name.endswith('.csv') and 'data' in it.name and expdir in it.path: 
+        elif it.name.endswith('.csv') and 'data' in it.name and (expdir in it.path or not expdir): 
             exp_dir = it.path.split('/')[-3]
             expData.setdefault(exp_dir,[]).append(it.path)
 
-def plotResult(expdir=''):
+def plotResult(expdir='', generate_2d_visualization =True):
     listdirs(rootdir,expdir )
     cwd = os.getcwd()
     global log_file 
@@ -219,7 +219,7 @@ def plotResult(expdir=''):
                     # print("***File name: {} ---  Similarity: {}  total: {}  ratio: {:.2f}%".format(fileName,sm, len(x1D), sm/len(x1D)*100) )
                     templateDict[method] = (np.sum(count0),np.sum(count1),sm, sm/len(x1D)*100,path2D ,path1D ) # @xMinCount, @xMajCount, @xInterCount, @xHDR
         ###generate entire plot
-        if 'moon' not in csvfile:
+        if 'moon' not in csvfile and generate_2d_visualization:
             editedTemplate = csvfile.replace('.csv', ".tex").replace('Results','Figures/{}'.format(reduceMethod)).replace(method,'')
             generateTemplate('figureGeneratorTemplate.tex',editedTemplate,templateDict )
     ##----------------------------------
@@ -340,4 +340,4 @@ if __name__ == '__main__':
     """
     sys.argv[0] : the experiment dir. E.g., moon2022-04-02 19.53.09.484218
     """
-    plotResult(sys.argv[1])
+    plotResult(sys.argv[1], False)

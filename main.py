@@ -69,7 +69,7 @@ def print(*args, **kwargs):
         log.writelines(args)
     return __builtin__.print(*args, **kwargs)
 
-def data_gen(dataset_name, IR):
+def data_gen(dataset_name, IR, args):
     """
     Generate synthetic imbalanced dataset
     dataset_name: 'breast_cancer', 'moon', 'creditcard', 'mnist'
@@ -92,9 +92,8 @@ def data_gen(dataset_name, IR):
     GD_lr = 0.00001 #lerning rate for gradient ascent method
     tolerance = 0.0001 #consider as a increasement in step size 
     GD_patience = 10 # gradient ascent patience for stoping early
-    r_dist = 'beta_3_2' # beta_alpha_beta
-    r_dist_list = ['uniform', 'beta_3_2', 'beta_2_3', 'beta_2_2']
-    gd_args = [k_R_distance,iter_max,GD_lr,tolerance,GD_patience, r_dist   ]
+    gd_args = [k_R_distance,iter_max,GD_lr,tolerance,GD_patience, args.r_dist   ]
+    
 
     if dataset_name == 'breast_cancer':
         dataset = sklearn.datasets.load_breast_cancer()  ##{1: 357, 0: 212}
@@ -152,7 +151,7 @@ def data_gen(dataset_name, IR):
     print("Params \nRandomSeed : {}\n n_neuron : {}\n n_Layers : {}\n epoch: {} \n k : {} \n cls_need_removal:{}"\
           .format(RandomSeed, n_neuron, n_layers, epoch,k,cls_need_removal))
     print("Gradient Ascent Parameters:\n K_R_distance : {}\n Iter_max : {}\n GD_lr : {}\n Tolerance: {}\n GD_patience: {}".format(k_R_distance,iter_max,GD_lr,tolerance, GD_patience))
-    print(" r_dist: {}".format(r_dist))
+    print(" r_dist: {}".format(args.r_dist))
     ##scale data
     from sklearn.preprocessing import MinMaxScaler
     scaler = MinMaxScaler()
@@ -428,15 +427,21 @@ if __name__== "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", help="DataSets: moon, breast_cancer, creditcard, glass1, etc. ",
                         type=str, default="moon")
+    parser.add_argument("--r_dist", help="Factor r distritbution, e.g., gaussian_1, gaussian_0.2, gaussian_0.6, etc. ",
+                        type=str, default="gaussian_1")
     parser.add_argument("--n_threads", help="number of threads, default 34, If using CUDA -> n_threads is set to 1",
                         type=int, default=10)
     parser.add_argument("--n_runs", help="number of trials, default 5",
                         type=int, default=5)
     parser.add_argument("--randseed", help="Random seed to split data, default 99",
                         type=int, default=99)
+    parser.add_argument("--entropyPortion", help="take highest entropy portion of data for informative balancing",
+                        type=float, default=None)
     parser.add_argument("--IR", help="Imbalance Ratio, default =3",
                         type=int, default=3)
     parser.add_argument("--cuda", help="using cuda, boolean{True,False}, default True",
+                        type=bool, default=False)
+    parser.add_argument("--onlySimpor", help="Run only simpor method",
                         type=bool, default=False)
     parser.add_argument("--note", 
                         type=str, default='')
@@ -451,11 +456,12 @@ if __name__== "__main__":
     RandomSeed = args.randseed
     IR = args.IR
     CUDA = args.cuda
+    
     # if CUDA: n_threads=1 
 
     # data preparation
     log_prepare(dataset_name)
-    X_train, X_test, y_train, y_test = data_gen(dataset_name,IR)
+    X_train, X_test, y_train, y_test = data_gen(dataset_name,IR,args)
     input_dim = X_train.shape[1]
     
      
@@ -475,7 +481,12 @@ if __name__== "__main__":
     ###############################################
     #Searching for the best parameters  
     ### if search for best paras
-    if args.gridSearch:
+    ### max_f1['f1'] : current max F1
+    ### h : width of gaussian kernel in non-parametric kernel estimation 
+    ### p : entropy threshold portion , p=0.1 will take 10% of highest entropy data samples
+    if args.entropyPortion:
+         max_f1 = {'f1':0,'h':0.1,'p':args.entropyPortion}
+    elif args.gridSearch:
         Plot= True
         h_list = [  0.1] # bandwidth of Gaussian kernel
         entropy_threshold_list = [0.2, 0.3, 0.4, 0.5]
@@ -504,7 +515,7 @@ if __name__== "__main__":
                 print("Time for this run (including classfication): {:.3f} seconds ".format( (time.time()-t) ) )
     else:
         #default 
-        max_f1 = {'f1':0,'h':0.1,'p':0.2}
+        max_f1 = {'f1':0,'h':0.1,'p':0.2} 
 
                         
     #######################################################
@@ -524,34 +535,38 @@ if __name__== "__main__":
     
     ##Test on original data 
     t1 = time.time()
-    Original_F1_scores =  Method_n_runs(method = 'RawData', X_train= X_train, y_train=y_train, X_test=X_test, y_test=y_test, num_runs=num_runs, epoch=epoch)
+    
+    if not args.onlySimpor: #if run only simpor
 
-    #test Other methods
-    t2 = time.time() 
-    BorderlineSMOTE_F1_scores =  Method_n_runs(method = 'BorderlineSMOTE', X_train= X_train, y_train=y_train, X_test=X_test, y_test=y_test, num_runs=num_runs, epoch=epoch)
-    
-    
-    t3 = time.time() 
-    ADASYN_F1_scores =  Method_n_runs(method = 'ADASYN', X_train= X_train, y_train=y_train, X_test=X_test, y_test=y_test, num_runs=num_runs, epoch=epoch)
-    
-    
-    t4 = time.time() 
-    SMOTE_F1_scores =  Method_n_runs(method = 'SMOTE', X_train= X_train, y_train=y_train, X_test=X_test, y_test=y_test, num_runs=num_runs, epoch=epoch)
-    
+        Original_F1_scores =  Method_n_runs(method = 'RawData', X_train= X_train, y_train=y_train, X_test=X_test, y_test=y_test, num_runs=num_runs, epoch=epoch)
 
-    t5 = time.time() 
-    ROS_F1_scores =  Method_n_runs(method = 'ROS', X_train= X_train, y_train=y_train, X_test=X_test, y_test=y_test, num_runs=num_runs, epoch=epoch)
-    t6 = time.time() 
+        #test Other methods
+        t2 = time.time() 
+        BorderlineSMOTE_F1_scores =  Method_n_runs(method = 'BorderlineSMOTE', X_train= X_train, y_train=y_train, X_test=X_test, y_test=y_test, num_runs=num_runs, epoch=epoch)
+        
+        
+        t3 = time.time() 
+        ADASYN_F1_scores =  Method_n_runs(method = 'ADASYN', X_train= X_train, y_train=y_train, X_test=X_test, y_test=y_test, num_runs=num_runs, epoch=epoch)
+        
+        
+        t4 = time.time() 
+        SMOTE_F1_scores =  Method_n_runs(method = 'SMOTE', X_train= X_train, y_train=y_train, X_test=X_test, y_test=y_test, num_runs=num_runs, epoch=epoch)
+        
 
-    GDO_F1_scores = Method_n_runs(method = 'GDO', X_train= X_train, y_train=y_train, X_test=X_test, y_test=y_test, num_runs=num_runs, epoch=epoch)
-    t7 = time.time() 
+        t5 = time.time() 
+        ROS_F1_scores =  Method_n_runs(method = 'ROS', X_train= X_train, y_train=y_train, X_test=X_test, y_test=y_test, num_runs=num_runs, epoch=epoch)
+        t6 = time.time() 
+
+        GDO_F1_scores = Method_n_runs(method = 'GDO', X_train= X_train, y_train=y_train, X_test=X_test, y_test=y_test, num_runs=num_runs, epoch=epoch)
+        t7 = time.time() 
 
     print("\n\n=====Summary after {} runs====".format(num_runs))
     print("SIMPOR_F1 mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format( SIMPOR_F1_full.mean(), SIMPOR_F1_full.std() ,(t1- t)/60 )  )
-    print("BorderlineSMOTE_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format( BorderlineSMOTE_F1_scores.mean(),BorderlineSMOTE_F1_scores.std(), (t3 - t2)/60  ))
-    print("ADASYN_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format(ADASYN_F1_scores.mean() ,ADASYN_F1_scores.std()  ,(t4 - t3)/60 ) )
-    print("SMOTE_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format( SMOTE_F1_scores.mean() , SMOTE_F1_scores.std()  ,(t5 - t4)/60 ) )
-    print("ROS_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format( ROS_F1_scores.mean() , ROS_F1_scores.std() ,(t6 - t5)/60 )  )
-    print("Original_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format(Original_F1_scores.mean() ,Original_F1_scores.std() ,(t2- t1)/60 ) )
-    print("GDO_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format( GDO_F1_scores.mean() , GDO_F1_scores.std()  ,(t7 - t6)/60 ) )
-    plotResult(expdir)
+    if not args.onlySimpor:
+        print("BorderlineSMOTE_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format( BorderlineSMOTE_F1_scores.mean(),BorderlineSMOTE_F1_scores.std(), (t3 - t2)/60  ))
+        print("ADASYN_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format(ADASYN_F1_scores.mean() ,ADASYN_F1_scores.std()  ,(t4 - t3)/60 ) )
+        print("SMOTE_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format( SMOTE_F1_scores.mean() , SMOTE_F1_scores.std()  ,(t5 - t4)/60 ) )
+        print("ROS_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format( ROS_F1_scores.mean() , ROS_F1_scores.std() ,(t6 - t5)/60 )  )
+        print("Original_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format(Original_F1_scores.mean() ,Original_F1_scores.std() ,(t2- t1)/60 ) )
+        print("GDO_F1_scores mean: {:.5f}  std: {:.5f} Time:{:.4f} minutes".format( GDO_F1_scores.mean() , GDO_F1_scores.std()  ,(t7 - t6)/60 ) )
+    plotResult(expdir, not args.onlySimpor)
